@@ -8,6 +8,7 @@ Created to help sync hubspot production to Dev's Sandboxes
 2. Create a `.env` file
 3. Add `HAPI_KEY_DESTINATION`, API key generated on *Dev's Sandbox* account
 4. Add `HAPI_KEY_SOURCE`, API key generated on *Production* account
+5. Compile into executable with [Compilation command](https://github.com/o3world/solar-sail#compilation-command) below
 
 ### Example Commands
 
