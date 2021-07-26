@@ -1,4 +1,4 @@
-import HubSpotClient from './hubspotClient.ts';
+import {HubSpotClient} from './hubspotClient.ts';
 
 async function solarSailCli(): Promise<void> {
   const args = Deno.args;

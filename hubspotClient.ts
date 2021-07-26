@@ -5,7 +5,7 @@ enum KeyType {
   DESTINATION = 'DESTINATION'
 }
 
-export default class HubSpotClient {
+export class HubSpotClient {
 
   private url:string = 'https://api.hubapi.com/';
   private keySource:string = config()?.HAPI_KEY_SOURCE ?? '';
