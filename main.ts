@@ -23,6 +23,4 @@ async function solarSailCli(): Promise<void> {
   }
 }
 
-if (import.meta.main) {
-  solarSailCli();
-}
+solarSailCli();
