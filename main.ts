@@ -1,5 +1,6 @@
 import { HubSpotClient } from './hubspotClient.ts';
 import { parse } from "https://deno.land/std/flags/mod.ts";
+import { config } from "https://deno.land/x/dotenv/mod.ts";
 
 async function solarSailCli(): Promise<void> {
   const args = parse(Deno.args);
@@ -23,4 +24,10 @@ async function solarSailCli(): Promise<void> {
   }
 }
 
-solarSailCli();
+const { HAPI_KEY_SOURCE, HAPI_KEY_DESTINATION } = config({ safe: true });
+
+if (HAPI_KEY_DESTINATION && HAPI_KEY_SOURCE) {
+  solarSailCli();
+} else {
+  console.log('.env file with HAPI_KEY_DESTINATION and HAPI_KEY_SOURCE not found, please add it to your current directory.');
+}
