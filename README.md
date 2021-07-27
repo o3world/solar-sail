@@ -23,3 +23,7 @@ Created to help sync hubspot production to Dev's Sandboxes
 ### Bundling
 
 `deno bundle main.ts > solar.bundle.ts`
+
+### Debugging
+
+* Make sure you've exported the PATH variable so the deno bin is visible to your terminal.
