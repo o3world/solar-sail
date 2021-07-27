@@ -5,11 +5,13 @@ enum KeyType {
   DESTINATION = 'DESTINATION'
 }
 
+const { HAPI_KEY_SOURCE, HAPI_KEY_DESTINATION } = config({ safe: true });
+
 export class HubSpotClient {
 
   private url:string = 'https://api.hubapi.com/';
-  private keySource:string = config()?.HAPI_KEY_SOURCE ?? '';
-  private keyDest:string = config()?.HAPI_KEY_DESTINATION ?? '';
+  private keySource:string = HAPI_KEY_SOURCE;
+  private keyDest:string = HAPI_KEY_DESTINATION;
 
   async request(path:string, key:KeyType, options?:RequestInit ) {
 

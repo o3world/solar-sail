@@ -1,25 +1,25 @@
-import {HubSpotClient} from './hubspotClient.ts';
+import { HubSpotClient } from './hubspotClient.ts';
+import { parse } from "https://deno.land/std/flags/mod.ts";
 
 async function solarSailCli(): Promise<void> {
-  const args = Deno.args;
+  const args = parse(Deno.args);
+
   const client = new HubSpotClient();
 
-  for(const arg of args) {
+  if (args?.pages == 'sync') {
+    client.syncPages('content/api/v2/pages');
+  }
 
-    switch(arg) {
-      case 'pages':
-        client.syncPages('content/api/v2/pages');
-        break;
-      case 'hubdb':
-        client.syncHubDb('hubdb/api/v2/tables');
-        break;
-      case 'blogs':
-        client.syncBlogPosts('content/api/v2/blog-posts');
-        break;
-      case 'deleteBlogs':
-        client.deleteBlogs();
-        break;
-    }
+  if (args?.hubdb == 'sync') {
+    client.syncHubDb('hubdb/api/v2/tables');
+  }
+
+  if (args?.blogs == 'sync') {
+    client.syncBlogPosts('content/api/v2/blog-posts');
+  }
+
+  if (args?.blogs == 'delete') {
+    client.deleteBlogs();
   }
 }
 
