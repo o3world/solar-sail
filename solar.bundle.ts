@@ -189,7 +189,6 @@ class HubSpotClient {
                     'content-type': 'application/json'
                 }
             });
-            console.log(newTable);
             const sourceTableRows = await this.request(`hubdb/api/v2/tables/${table.id}/rows`, KeyType.SOURCE);
             for (const row of sourceTableRows?.objects){
                 await this.request(`hubdb/api/v2/tables/${newTable.id}/rows`, KeyType.DESTINATION, {
