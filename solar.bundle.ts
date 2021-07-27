@@ -153,7 +153,11 @@ class HubSpotClient {
         const endpoint = `${this.url}${path}${keyParam}`;
         const res = await fetch(endpoint, options);
         try {
-            return await res.json();
+            const result = await res.json();
+            return {
+                status: res.status,
+                ...result
+            };
         } catch (error) {
             return res;
         }
@@ -189,6 +193,9 @@ class HubSpotClient {
                     'content-type': 'application/json'
                 }
             });
+            if (newTable.status == '200') {
+                console.log(green(`Table: ${table.name} was created successfully`));
+            }
             const sourceTableRows = await this.request(`hubdb/api/v2/tables/${table.id}/rows`, KeyType.SOURCE);
             for (const row of sourceTableRows?.objects){
                 await this.request(`hubdb/api/v2/tables/${newTable.id}/rows`, KeyType.DESTINATION, {
