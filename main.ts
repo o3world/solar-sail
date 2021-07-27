@@ -25,10 +25,9 @@ async function solarSailCli(): Promise<void> {
   }
 }
 
-const { HAPI_KEY_SOURCE, HAPI_KEY_DESTINATION } = config();
+const { HAPI_KEY_SOURCE, HAPI_KEY_DESTINATION } = config({ safe: true });
 
 if (HAPI_KEY_DESTINATION && HAPI_KEY_SOURCE) {
-  console.log('TEST');
   solarSailCli();
 } else {
   console.error(
