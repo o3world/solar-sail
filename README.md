@@ -12,9 +12,11 @@ Created to help sync hubspot production to Dev's Sandboxes
 
 ### Example Commands
 
-* `solar pages`: Sync all pages.
-* `solar hubdb`: Sync all tables in hubdb.
-* `solar blogs`: Sync all Blogs and Blog Posts.
+* `solar --pages=sync`: Sync all pages.
+* `solar --hubdb=sync`: Sync all tables in hubdb.
+* `solar --blogs=sync`: Sync all Blogs and Blog Posts.
+* `solar --blogs=delete`: Delete all Blogs along with Blog Posts
+* `solar --all=sync`: Sync all Pages, HubDB Tables and Blogs
 
 ### Installation command
 
