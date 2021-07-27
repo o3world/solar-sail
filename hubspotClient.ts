@@ -69,8 +69,6 @@ export class HubSpotClient {
         }
       });
 
-      console.log(newTable);
-
       // Get table info from source.
       const sourceTableRows = await this.request(`hubdb/api/v2/tables/${table.id}/rows`, KeyType.SOURCE);
 
