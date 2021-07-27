@@ -18,4 +18,4 @@ Created to help sync hubspot production to Dev's Sandboxes
 
 ### Installation command
 
-`deno install -n solar --allow-net --allow-read --allow-write https://raw.githubusercontent.com/o3world/solar-sail/main/main.ts`
+`deno install -n solar --allow-net --allow-read --allow-write -f https://raw.githubusercontent.com/o3world/solar-sail/main/main.ts`
