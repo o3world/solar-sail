@@ -1,4 +1,5 @@
 import { config } from "https://deno.land/x/dotenv/mod.ts";
+import * as Colors from 'https://deno.land/std@0.103.0/fmt/colors.ts';
 
 enum KeyType {
   SOURCE = 'SOURCE',
@@ -58,6 +59,7 @@ export class HubSpotClient {
         publishedAt: table.publishedAt,
       }
 
+      console.log(Colors.blue(`Creating New HubDB table: ${table.name}`))
       // Create new Table at Destination.
       const newTable = await this.request(path, KeyType.DESTINATION, {
         method: 'POST',
@@ -67,11 +69,13 @@ export class HubSpotClient {
         }
       });
 
+      console.log(newTable);
+
       // Get table info from source.
       const sourceTableRows = await this.request(`hubdb/api/v2/tables/${table.id}/rows`, KeyType.SOURCE);
 
       for(const row of sourceTableRows?.objects) {
-        const newRow = await this.request(`hubdb/api/v2/tables/${newTable.id}/rows`, KeyType.DESTINATION, {
+        await this.request(`hubdb/api/v2/tables/${newTable.id}/rows`, KeyType.DESTINATION, {
           method: 'POST',
           body: JSON.stringify({
             values: row.values
@@ -89,22 +93,38 @@ export class HubSpotClient {
     const blogs = await this.request(path, KeyType.DESTINATION);
 
     for(const blog of blogs?.objects) {
-      await this.request(`${path}/${blog.id}`, KeyType.DESTINATION, { method: 'DELETE' });
+      console.log(Colors.blue(`Deleting ${blog.name}`))
+      const res = await this.request(`${path}/${blog.id}`, KeyType.DESTINATION, { method: 'DELETE' });
+
+      if (res.status == 204) {
+        console.log(Colors.green(`Successfully deleted "${blog.name}" blog.`));
+      }
+      
     }
   }
 
   async syncBlogs() {
     const path = 'content/api/v2/blogs';
+    console.log(Colors.blue('Getting List of Blogs'))
     const blogs = await this.request(path, KeyType.SOURCE);
+    console.log(Colors.green(`Successfully fetched list of Blogs`));
 
-    for(const blog of blogs?.objects) { 
-      await this.request(path, KeyType.DESTINATION, {
+    for(const blog of blogs?.objects) {
+      console.log(Colors.blue(`Syncing Blog named: ${blog.name}`))
+      const res = await this.request(path, KeyType.DESTINATION, {
         method: 'POST',
         body: JSON.stringify(blog),
         headers: {
           'content-type': 'application/json'
         }
       })
+
+      if (res?.status == 'error') {
+        console.log(Colors.red(res.message));
+      } else {
+        console.log(Colors.green(`Blog: ${res.name} created successfully at ${res.domain_when_published}.`));
+      }
+
     }
   }
 
@@ -120,22 +140,31 @@ export class HubSpotClient {
   async syncBlogPosts(path:string) {
     
     await this.syncBlogs();
+    console.log(Colors.blue('Getting List of Blog Posts'))
     const blogPosts = await this.request(path, KeyType.SOURCE);
+    console.log(Colors.green(`Successfully fetched list of Blog Posts`));
 
     for(const blogPost of blogPosts?.objects) {
+      console.log(Colors.blue(`Syncing Blog post: ${blogPost.name}`))
       const parentBlog = await this.getParentBlog(blogPost.parent_blog.name);
 
       if(!parentBlog) continue;
 
       blogPost.content_group_id = parentBlog.id;
 
-      this.request(path, KeyType.DESTINATION, {
+      const res = await this.request(path, KeyType.DESTINATION, {
         method: 'POST',
         body: JSON.stringify(blogPost),
         headers: {
           'content-type': 'application/json'
         }
       })
+
+      if (res?.status == 'error') {
+        console.log(Colors.red(res.message));
+      } else {
+        console.log(Colors.green(`Blog Post: ${res.name} created successfully at ${res.url}.`));
+      }
     }
   }
 
