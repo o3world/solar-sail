@@ -2,6 +2,7 @@ import { HubSpotClient } from './hubspotClient.ts';
 import { parse } from "https://deno.land/std/flags/mod.ts";
 import { config } from "https://deno.land/x/dotenv/mod.ts";
 import * as Colors from 'https://deno.land/std@0.103.0/fmt/colors.ts';
+import { printf } from "https://deno.land/std/fmt/printf.ts";
 
 async function solarSailCli(): Promise<void> {
   const args = parse(Deno.args);
@@ -28,6 +29,7 @@ async function solarSailCli(): Promise<void> {
 const { HAPI_KEY_SOURCE, HAPI_KEY_DESTINATION } = config();
 
 if (HAPI_KEY_DESTINATION && HAPI_KEY_SOURCE) {
+  printf('Running Solar Sail.')
   solarSailCli();
 } else {
   console.error(
