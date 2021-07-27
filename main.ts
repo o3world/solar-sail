@@ -23,6 +23,12 @@ async function solarSailCli(): Promise<void> {
   if (args?.blogs == 'delete') {
     client.deleteBlogs();
   }
+
+  if (args?.all == 'sync') {
+    client.syncPages('content/api/v2/pages');
+    client.syncHubDb('hubdb/api/v2/tables');
+    client.syncBlogPosts('content/api/v2/blog-posts');
+  }
 }
 
 const { HAPI_KEY_SOURCE, HAPI_KEY_DESTINATION } = config({ safe: true });
