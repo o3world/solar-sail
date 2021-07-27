@@ -26,7 +26,11 @@ export class HubSpotClient {
     const res = await fetch(endpoint, options);
 
     try {
-      return await res.json();
+      const result = await res.json();
+      return {
+        status: res.status,
+        ...result
+      }
     } catch (error) {
       return res;
     }
@@ -68,6 +72,10 @@ export class HubSpotClient {
           'content-type': 'application/json'
         }
       });
+
+      if (newTable.status == '200') {
+        console.log(Colors.green(`Table: ${table.name} was created successfully`));
+      }
 
       // Get table info from source.
       const sourceTableRows = await this.request(`hubdb/api/v2/tables/${table.id}/rows`, KeyType.SOURCE);
