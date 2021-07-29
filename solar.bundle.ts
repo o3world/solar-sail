@@ -252,6 +252,23 @@ class HubSpotClient {
             }
         }
     }
+    async syncTemplates(path) {
+        const sourceTemplates = await this.request(path, KeyType.SOURCE);
+        for (const template of sourceTemplates?.objects){
+            const res = await this.request(path, KeyType.DESTINATION, {
+                method: 'POST',
+                body: JSON.stringify(template),
+                headers: {
+                    'content-type': 'application/json'
+                }
+            });
+            if (res?.status == 'error') {
+                console.log(red(res.message));
+            } else {
+                console.log(green(`Template ${res.path} created successfully.`));
+            }
+        }
+    }
     async syncBlogAuthors() {
         const sourceAuthors = await this.request('blogs/v3/blog-authors', KeyType.SOURCE);
         for (const author of sourceAuthors?.objects){
@@ -557,7 +574,11 @@ async function solarSailCli() {
     if (args?.blogs == 'delete') {
         client.deleteBlogs();
     }
+    if (args?.templates == 'sync') {
+        client.syncTemplates('content/api/v2/templates');
+    }
     if (args?.all == 'sync') {
+        client.syncTemplates('content/api/v2/templates');
         client.syncPages('content/api/v2/pages');
         client.syncHubDb('hubdb/api/v2/tables');
         client.syncBlogPosts('content/api/v2/blog-posts');

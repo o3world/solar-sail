@@ -143,6 +143,25 @@ export class HubSpotClient {
     }
   }
 
+  async syncTemplates(path:string) {
+    const sourceTemplates = await this.request(path, KeyType.SOURCE);
+    for (const template of sourceTemplates?.objects) {
+      const res = await this.request(path, KeyType.DESTINATION, {
+        method: 'POST',
+        body: JSON.stringify(template),
+        headers: {
+          'content-type': 'application/json'
+        }
+      })
+
+      if (res?.status == 'error') {
+        console.log(Colors.red(res.message));
+      } else {
+        console.log(Colors.green(`Template ${res.path} created successfully.`));
+      }
+    }
+  }
+
   async syncBlogAuthors() {
     const sourceAuthors = await this.request('blogs/v3/blog-authors', KeyType.SOURCE);
 
