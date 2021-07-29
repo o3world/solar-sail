@@ -143,8 +143,29 @@ export class HubSpotClient {
     }
   }
 
+  async syncBlogAuthors() {
+    const sourceAuthors = await this.request('blogs/v3/blog-authors', KeyType.SOURCE);
+
+    for (const author of sourceAuthors?.objects) {
+      const res = await this.request('blogs/v3/blog-authors', KeyType.DESTINATION, {
+        method: 'POST',
+        body: JSON.stringify(author),
+        headers: {
+          'content-type': 'application/json'
+        }
+      })
+
+      if (res?.status == 'error') {
+        console.log(Colors.red(res.message));
+      } else {
+        console.log(Colors.green(`Author: ${res.name} created successfully at ${res.url}.`));
+      }
+    }
+
+  }
+
   async syncBlogPosts(path:string) {
-    
+    await this.syncBlogAuthors();
     await this.syncBlogs();
     console.log(Colors.blue('Getting List of Blog Posts'))
     const blogPosts = await this.request(path, KeyType.SOURCE);
