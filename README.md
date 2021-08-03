@@ -16,11 +16,17 @@ Created to help sync hubspot production to Dev's Sandboxes
 * `solar --hubdb=sync`: Sync all tables in hubdb.
 * `solar --blogs=sync`: Sync all Blogs and Blog Posts.
 * `solar --blogs=delete`: Delete all Blogs along with Blog Posts
+* `solar --templates=sync`: Sync all templates.
 * `solar --all=sync`: Sync all Pages, HubDB Tables and Blogs
 
 ### Installation command
 
 `deno install -n solar --allow-net --allow-env --allow-read --allow-write --no-check -f https://raw.githubusercontent.com/o3world/solar-sail/main/solar.bundle.ts`
+
+To reinstall:
+
+`deno install -n solar --reload --allow-net --allow-env --allow-read --allow-write --no-check -f https://raw.githubusercontent.com/o3world/solar-sail/main/solar.bundle.ts`
+
 
 ### Bundling
 
