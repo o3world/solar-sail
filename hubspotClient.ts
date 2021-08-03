@@ -14,7 +14,7 @@ export class HubSpotClient {
   private keySource:string = HAPI_KEY_SOURCE;
   private keyDest:string = HAPI_KEY_DESTINATION;
 
-  async request(path:string, key:KeyType, options?:RequestInit ) {
+  async request(path:string, key:KeyType, options?:RequestInit, queryStr?:string) {
 
     let keyParam = `?hapikey=${this.keySource}`;
 
@@ -22,7 +22,12 @@ export class HubSpotClient {
       keyParam = `?hapikey=${this.keyDest}`;
     }
 
-    const endpoint = `${this.url}${path}${keyParam}`;
+    let endpoint = `${this.url}${path}${keyParam}`;
+
+    if (queryStr) {
+      endpoint += `${queryStr}`;
+    }
+
     const res = await fetch(endpoint, options);
 
     try {
@@ -33,6 +38,35 @@ export class HubSpotClient {
       }
     } catch (error) {
       return res;
+    }
+  }
+
+  async isForbidden():Promise<boolean> {
+    try {
+      const page = await this.request('content/api/v2/pages', KeyType.DESTINATION, null, '&limit=1');
+      
+      if (!page) {
+        console.log(Colors.red('Couldn\'t reach destination api.'));
+        return true;
+      }
+
+      // Only 1 will return.
+      const pageObject = page.objects[0];
+
+      /**
+       * 6679661 is SungardAS production/live env.
+       * 20431515 is O3 world Dev env.
+       */
+      switch(pageObject.portal_id) {
+        case 6679661:
+        case 20431515:
+          return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.log(Colors.red(error));
+      return true;
     }
   }
 
@@ -165,7 +199,7 @@ export class HubSpotClient {
   async syncBlogAuthors() {
     const sourceAuthors = await this.request('blogs/v3/blog-authors', KeyType.SOURCE);
 
-    for (const author of sourceAuthors?.objects) {
+    for (const author of sourceAuthors.objects) {
       const res = await this.request('blogs/v3/blog-authors', KeyType.DESTINATION, {
         method: 'POST',
         body: JSON.stringify(author),
@@ -197,6 +231,16 @@ export class HubSpotClient {
       if(!parentBlog) continue;
 
       blogPost.content_group_id = parentBlog.id;
+
+      console.log(blogPost)
+
+      if (blogPost.translated_content) {
+        for(const translated_content in blogPost.translated_content) {
+          delete blogPost.translated_content[translated_content].id
+        }
+      }
+
+      delete blogPost.translated_from_id;
 
       const res = await this.request(path, KeyType.DESTINATION, {
         method: 'POST',

@@ -8,6 +8,13 @@ async function solarSailCli(): Promise<void> {
 
   const client = new HubSpotClient();
 
+  const isForbidden = await client.isForbidden();
+
+  if (isForbidden) {
+    console.log(Colors.red('Your DESTINATION api key is pointing to the wrong enviroment. Make sure its your own sandbox API key'));
+    return;
+  }
+
   if (args?.pages == 'sync') {
     client.syncPages('content/api/v2/pages');
   }
