@@ -319,7 +319,6 @@ class HubSpotClient {
             const parentBlog = await this.getParentBlog(blogPost.parent_blog.name);
             if (!parentBlog) continue;
             blogPost.content_group_id = parentBlog.id;
-            console.log(blogPost);
             if (blogPost.translated_content) {
                 for(const translated_content in blogPost.translated_content){
                     delete blogPost.translated_content[translated_content].id;
