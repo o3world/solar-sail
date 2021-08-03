@@ -145,12 +145,15 @@ class HubSpotClient {
     url = 'https://api.hubapi.com/';
     keySource = HAPI_KEY_SOURCE;
     keyDest = HAPI_KEY_DESTINATION;
-    async request(path, key, options) {
+    async request(path, key, options, queryStr) {
         let keyParam = `?hapikey=${this.keySource}`;
         if (key == KeyType.DESTINATION) {
             keyParam = `?hapikey=${this.keyDest}`;
         }
-        const endpoint = `${this.url}${path}${keyParam}`;
+        let endpoint = `${this.url}${path}${keyParam}`;
+        if (queryStr) {
+            endpoint += `${queryStr}`;
+        }
         const res = await fetch(endpoint, options);
         try {
             const result = await res.json();
@@ -160,6 +163,25 @@ class HubSpotClient {
             };
         } catch (error) {
             return res;
+        }
+    }
+    async isForbidden() {
+        try {
+            const page = await this.request('content/api/v2/pages', KeyType.DESTINATION, undefined, '&limit=1');
+            if (!page) {
+                console.log(red('Couldn\'t reach destination api.'));
+                return true;
+            }
+            const pageObject = page.objects[0];
+            switch(pageObject.portal_id){
+                case 6679661:
+                case 20431515:
+                    return true;
+            }
+            return false;
+        } catch (error) {
+            console.log(red(error));
+            return true;
         }
     }
     async syncPages(path) {
@@ -271,7 +293,7 @@ class HubSpotClient {
     }
     async syncBlogAuthors() {
         const sourceAuthors = await this.request('blogs/v3/blog-authors', KeyType.SOURCE);
-        for (const author of sourceAuthors?.objects){
+        for (const author of sourceAuthors.objects){
             const res = await this.request('blogs/v3/blog-authors', KeyType.DESTINATION, {
                 method: 'POST',
                 body: JSON.stringify(author),
@@ -297,6 +319,13 @@ class HubSpotClient {
             const parentBlog = await this.getParentBlog(blogPost.parent_blog.name);
             if (!parentBlog) continue;
             blogPost.content_group_id = parentBlog.id;
+            console.log(blogPost);
+            if (blogPost.translated_content) {
+                for(const translated_content in blogPost.translated_content){
+                    delete blogPost.translated_content[translated_content].id;
+                }
+            }
+            delete blogPost.translated_from_id;
             const res = await this.request(path, KeyType.DESTINATION, {
                 method: 'POST',
                 body: JSON.stringify(blogPost),
@@ -562,6 +591,11 @@ function parse1(args, { "--": doubleDash = false , alias ={
 async function solarSailCli() {
     const args = parse1(Deno.args);
     const client = new HubSpotClient();
+    const isForbidden = await client.isForbidden();
+    if (isForbidden) {
+        console.log(red('Your DESTINATION api key is pointing to the wrong enviroment. Make sure its your own sandbox API key'));
+        return;
+    }
     if (args?.pages == 'sync') {
         client.syncPages('content/api/v2/pages');
     }

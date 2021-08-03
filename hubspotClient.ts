@@ -43,7 +43,7 @@ export class HubSpotClient {
 
   async isForbidden():Promise<boolean> {
     try {
-      const page = await this.request('content/api/v2/pages', KeyType.DESTINATION, null, '&limit=1');
+      const page = await this.request('content/api/v2/pages', KeyType.DESTINATION, undefined, '&limit=1');
       
       if (!page) {
         console.log(Colors.red('Couldn\'t reach destination api.'));
