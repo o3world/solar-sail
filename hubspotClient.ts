@@ -232,8 +232,6 @@ export class HubSpotClient {
 
       blogPost.content_group_id = parentBlog.id;
 
-      console.log(blogPost)
-
       if (blogPost.translated_content) {
         for(const translated_content in blogPost.translated_content) {
           delete blogPost.translated_content[translated_content].id
