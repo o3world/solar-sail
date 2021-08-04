@@ -123,6 +123,11 @@ function green(str) {
         32
     ], 39));
 }
+function yellow(str) {
+    return run(str, code([
+        33
+    ], 39));
+}
 function blue(str) {
     return run(str, code([
         34
@@ -167,9 +172,13 @@ class HubSpotClient {
     }
     async isForbidden() {
         try {
-            const page = await this.request('content/api/v2/pages', KeyType.DESTINATION, undefined, '&limit=1');
+            const page = await this.request('content/api/v2/templates', KeyType.DESTINATION, undefined, '&limit=1');
             if (!page) {
                 console.log(red('Couldn\'t reach destination api.'));
+                return true;
+            }
+            if (page.total == 0) {
+                console.log(yellow('No pages to check againsts.'));
                 return true;
             }
             const pageObject = page.objects[0];
@@ -180,7 +189,7 @@ class HubSpotClient {
             }
             return false;
         } catch (error) {
-            console.log(red(error));
+            console.log(red(`${error}`));
             return true;
         }
     }
@@ -250,19 +259,30 @@ class HubSpotClient {
         console.log(blue('Getting List of Blogs'));
         const blogs = await this.request(path, KeyType.SOURCE);
         console.log(green(`Successfully fetched list of Blogs`));
-        for (const blog of blogs?.objects){
-            console.log(blue(`Syncing Blog named: ${blog.name}`));
+        const mainBlogs = blogs.objects.filter((blog)=>blog.translated_from_id == null ? true : false
+        );
+        for (const mainBlog of mainBlogs){
+            const payload = {
+                name: mainBlog.name,
+                category_id: mainBlog.category_id,
+                created: mainBlog.created,
+                updated: mainBlog.updated,
+                item_template_path: mainBlog.item_template_path,
+                public_title: mainBlog.public_title,
+                html_title: mainBlog.html_title,
+                slug: mainBlog.slug,
+                description: mainBlog.description,
+                language: mainBlog.language
+            };
             const res = await this.request(path, KeyType.DESTINATION, {
                 method: 'POST',
-                body: JSON.stringify(blog),
+                body: JSON.stringify(payload),
                 headers: {
                     'content-type': 'application/json'
                 }
             });
             if (res?.status == 'error') {
-                console.log(red(res.message));
-            } else {
-                console.log(green(`Blog: ${res.name} created successfully at ${res.domain_when_published}.`));
+                return console.log(red(res.message));
             }
         }
     }
@@ -276,7 +296,15 @@ class HubSpotClient {
     }
     async syncTemplates(path) {
         const sourceTemplates = await this.request(path, KeyType.SOURCE);
-        for (const template of sourceTemplates?.objects){
+        const destinationTemplates = await this.request(path, KeyType.DESTINATION);
+        let templatesToSync = [];
+        for (const sourceTemplate of sourceTemplates?.objects){
+            for (const destinationTemplate of destinationTemplates?.objects){
+                if (sourceTemplates.id == destinationTemplates.id) continue;
+                templatesToSync.push(sourceTemplate);
+            }
+        }
+        for (const template of templatesToSync){
             const res = await this.request(path, KeyType.DESTINATION, {
                 method: 'POST',
                 body: JSON.stringify(template),
@@ -315,16 +343,11 @@ class HubSpotClient {
         const blogPosts = await this.request(path, KeyType.SOURCE);
         console.log(green(`Successfully fetched list of Blog Posts`));
         for (const blogPost of blogPosts?.objects){
-            console.log(blue(`Syncing Blog post: ${blogPost.name}`));
             const parentBlog = await this.getParentBlog(blogPost.parent_blog.name);
             if (!parentBlog) continue;
             blogPost.content_group_id = parentBlog.id;
-            if (blogPost.translated_content) {
-                for(const translated_content in blogPost.translated_content){
-                    delete blogPost.translated_content[translated_content].id;
-                }
-            }
-            delete blogPost.translated_from_id;
+            if (blogPost?.translated_from_id) continue;
+            console.log(blue(`Syncing Blog post: ${blogPost.name}`));
             const res = await this.request(path, KeyType.DESTINATION, {
                 method: 'POST',
                 body: JSON.stringify(blogPost),
@@ -606,6 +629,9 @@ async function solarSailCli() {
     }
     if (args?.blogs == 'delete') {
         client.deleteBlogs();
+    }
+    if (args?.blogs == 'only') {
+        client.syncBlogs();
     }
     if (args?.templates == 'sync') {
         client.syncTemplates('content/api/v2/templates');
