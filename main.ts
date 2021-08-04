@@ -31,6 +31,10 @@ async function solarSailCli(): Promise<void> {
     client.deleteBlogs();
   }
 
+  if (args?.blogs == 'only') {
+    client.syncBlogs();
+  }
+
   if (args?.templates == 'sync') {
     client.syncTemplates('content/api/v2/templates');
   }

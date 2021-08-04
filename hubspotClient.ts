@@ -43,10 +43,15 @@ export class HubSpotClient {
 
   async isForbidden():Promise<boolean> {
     try {
-      const page = await this.request('content/api/v2/pages', KeyType.DESTINATION, undefined, '&limit=1');
-      
+      const page = await this.request('content/api/v2/templates', KeyType.DESTINATION, undefined, '&limit=1');
+
       if (!page) {
         console.log(Colors.red('Couldn\'t reach destination api.'));
+        return true;
+      }
+
+      if (page.total == 0) {
+        console.log(Colors.yellow('No pages to check againsts.'));
         return true;
       }
 
@@ -65,7 +70,7 @@ export class HubSpotClient {
 
       return false;
     } catch (error) {
-      console.log(Colors.red(error));
+      console.log(Colors.red(`${error}`));
       return true;
     }
   }
@@ -149,22 +154,35 @@ export class HubSpotClient {
     const blogs = await this.request(path, KeyType.SOURCE);
     console.log(Colors.green(`Successfully fetched list of Blogs`));
 
-    for(const blog of blogs?.objects) {
-      console.log(Colors.blue(`Syncing Blog named: ${blog.name}`))
-      const res = await this.request(path, KeyType.DESTINATION, {
-        method: 'POST',
-        body: JSON.stringify(blog),
-        headers: {
-          'content-type': 'application/json'
+    // Skipping translated content.
+    const mainBlogs = blogs.objects.filter((blog: any) => blog.translated_from_id == null ? true : false);
+
+    for (const mainBlog of mainBlogs) {
+
+        const payload = {
+          name: mainBlog.name,
+          category_id: mainBlog.category_id,
+          created: mainBlog.created,
+          updated: mainBlog.updated,
+          item_template_path: mainBlog.item_template_path,
+          public_title: mainBlog.public_title,
+          html_title: mainBlog.html_title,
+          slug: mainBlog.slug,
+          description: mainBlog.description,
+          language: mainBlog.language,
+        };
+        
+        const res = await this.request(path, KeyType.DESTINATION, {
+          method: 'POST',
+          body: JSON.stringify(payload),
+          headers: {
+            'content-type': 'application/json'
+          }
+        });
+
+        if (res?.status == 'error') {
+          return console.log(Colors.red(res.message));
         }
-      })
-
-      if (res?.status == 'error') {
-        console.log(Colors.red(res.message));
-      } else {
-        console.log(Colors.green(`Blog: ${res.name} created successfully at ${res.domain_when_published}.`));
-      }
-
     }
   }
 
@@ -179,7 +197,18 @@ export class HubSpotClient {
 
   async syncTemplates(path:string) {
     const sourceTemplates = await this.request(path, KeyType.SOURCE);
-    for (const template of sourceTemplates?.objects) {
+    const destinationTemplates = await this.request(path, KeyType.DESTINATION);
+
+    let templatesToSync = [];
+
+    for (const sourceTemplate of sourceTemplates?.objects) {
+      for (const destinationTemplate of destinationTemplates?.objects) {
+        if (sourceTemplates.id == destinationTemplates.id) continue;
+        templatesToSync.push(sourceTemplate);
+      }
+    }
+
+    for (const template of templatesToSync) {
       const res = await this.request(path, KeyType.DESTINATION, {
         method: 'POST',
         body: JSON.stringify(template),
@@ -225,20 +254,14 @@ export class HubSpotClient {
     console.log(Colors.green(`Successfully fetched list of Blog Posts`));
 
     for(const blogPost of blogPosts?.objects) {
-      console.log(Colors.blue(`Syncing Blog post: ${blogPost.name}`))
       const parentBlog = await this.getParentBlog(blogPost.parent_blog.name);
-
-      if(!parentBlog) continue;
-
+      if (!parentBlog) continue;
       blogPost.content_group_id = parentBlog.id;
 
-      if (blogPost.translated_content) {
-        for(const translated_content in blogPost.translated_content) {
-          delete blogPost.translated_content[translated_content].id
-        }
-      }
+      // Skipping translated content for now.
+      if (blogPost?.translated_from_id) continue;
 
-      delete blogPost.translated_from_id;
+      console.log(Colors.blue(`Syncing Blog post: ${blogPost.name}`))
 
       const res = await this.request(path, KeyType.DESTINATION, {
         method: 'POST',
@@ -246,7 +269,7 @@ export class HubSpotClient {
         headers: {
           'content-type': 'application/json'
         }
-      })
+      });
 
       if (res?.status == 'error') {
         console.log(Colors.red(res.message));
