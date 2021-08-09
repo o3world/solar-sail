@@ -172,17 +172,17 @@ class HubSpotClient {
     }
     async isForbidden() {
         try {
-            const page = await this.request('content/api/v2/templates', KeyType.DESTINATION, undefined, '&limit=1');
-            if (!page) {
+            const template = await this.request('content/api/v2/templates', KeyType.DESTINATION, undefined, '&limit=1');
+            if (!template) {
                 console.log(red('Couldn\'t reach destination api.'));
                 return true;
             }
-            if (page.total == 0) {
-                console.log(yellow('No pages to check againsts.'));
+            if (template.total == 0) {
+                console.log(yellow('No templatess to check againsts.'));
                 return true;
             }
-            const pageObject = page.objects[0];
-            switch(pageObject.portal_id){
+            const templateObject = template.objects[0];
+            switch(templateObject.portal_id){
                 case 6679661:
                 case 20431515:
                     return true;
@@ -194,7 +194,7 @@ class HubSpotClient {
         }
     }
     async syncPages(path) {
-        const pages = await this.request(path, KeyType.SOURCE);
+        const pages = await this.request(path, KeyType.SOURCE, undefined, '&limit=200');
         for (const page of pages?.objects){
             delete page.id;
             this.request(path, KeyType.DESTINATION, {
@@ -340,7 +340,7 @@ class HubSpotClient {
         await this.syncBlogAuthors();
         await this.syncBlogs();
         console.log(blue('Getting List of Blog Posts'));
-        const blogPosts = await this.request(path, KeyType.SOURCE);
+        const blogPosts = await this.request(path, KeyType.SOURCE, undefined, '&limit=200');
         console.log(green(`Successfully fetched list of Blog Posts`));
         for (const blogPost of blogPosts?.objects){
             const parentBlog = await this.getParentBlog(blogPost.parent_blog.name);
