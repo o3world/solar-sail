@@ -43,26 +43,26 @@ export class HubSpotClient {
 
   async isForbidden():Promise<boolean> {
     try {
-      const page = await this.request('content/api/v2/templates', KeyType.DESTINATION, undefined, '&limit=1');
+      const template = await this.request('content/api/v2/templates', KeyType.DESTINATION, undefined, '&limit=1');
 
-      if (!page) {
+      if (!template) {
         console.log(Colors.red('Couldn\'t reach destination api.'));
         return true;
       }
 
-      if (page.total == 0) {
-        console.log(Colors.yellow('No pages to check againsts.'));
+      if (template.total == 0) {
+        console.log(Colors.yellow('No templatess to check againsts.'));
         return true;
       }
 
       // Only 1 will return.
-      const pageObject = page.objects[0];
+      const templateObject = template.objects[0];
 
       /**
        * 6679661 is SungardAS production/live env.
        * 20431515 is O3 world Dev env.
        */
-      switch(pageObject.portal_id) {
+      switch(templateObject.portal_id) {
         case 6679661:
         case 20431515:
           return true;
@@ -76,7 +76,7 @@ export class HubSpotClient {
   }
 
   async syncPages(path:string) {
-    const pages = await this.request(path, KeyType.SOURCE);
+    const pages = await this.request(path, KeyType.SOURCE, undefined, '&limit=200');
 
     for(const page of pages?.objects) {
       delete page.id;
@@ -250,7 +250,7 @@ export class HubSpotClient {
     await this.syncBlogAuthors();
     await this.syncBlogs();
     console.log(Colors.blue('Getting List of Blog Posts'))
-    const blogPosts = await this.request(path, KeyType.SOURCE);
+    const blogPosts = await this.request(path, KeyType.SOURCE, undefined, '&limit=200');
     console.log(Colors.green(`Successfully fetched list of Blog Posts`));
 
     for(const blogPost of blogPosts?.objects) {
