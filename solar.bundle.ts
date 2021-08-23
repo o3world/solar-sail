@@ -38,10 +38,6 @@ function config(options = {
         defaults: `.env.defaults`
     }, options);
     const conf = parseFile(o.path);
-    if (o.safe) {
-        const confExample = parseFile(o.example);
-        assertSafe(conf, confExample, o.allowEmptyValues);
-    }
     if (o.defaults) {
         const confDefaults = parseFile(o.defaults);
         for(const key in confDefaults){
@@ -49,6 +45,10 @@ function config(options = {
                 conf[key] = confDefaults[key];
             }
         }
+    }
+    if (o.safe) {
+        const confExample = parseFile(o.example);
+        assertSafe(conf, confExample, o.allowEmptyValues);
     }
     if (o.export) {
         for(const key in conf){
@@ -150,7 +150,13 @@ class HubSpotClient {
     url = 'https://api.hubapi.com/';
     keySource = HAPI_KEY_SOURCE;
     keyDest = HAPI_KEY_DESTINATION;
+    async sleep(ms) {
+        await new Promise((resolve)=>{
+            setTimeout(resolve, ms);
+        });
+    }
     async request(path, key, options, queryStr) {
+        await this.sleep(105);
         let keyParam = `?hapikey=${this.keySource}`;
         if (key == KeyType.DESTINATION) {
             keyParam = `?hapikey=${this.keyDest}`;
@@ -197,7 +203,7 @@ class HubSpotClient {
         const pages = await this.request(path, KeyType.SOURCE, undefined, '&limit=200');
         for (const page of pages?.objects){
             delete page.id;
-            this.request(path, KeyType.DESTINATION, {
+            await this.request(path, KeyType.DESTINATION, {
                 method: 'POST',
                 body: JSON.stringify(page),
                 headers: {
@@ -339,6 +345,9 @@ class HubSpotClient {
     async syncBlogPosts(path) {
         await this.syncBlogAuthors();
         await this.syncBlogs();
+        const destinationAuthors = await this.request('blogs/v3/blog-authors', KeyType.DESTINATION);
+        const sungardAsAuthorId = destinationAuthors.objects.find((author)=>author.displayName == 'Sungard AS'
+        ).id;
         console.log(blue('Getting List of Blog Posts'));
         const blogPosts = await this.request(path, KeyType.SOURCE, undefined, '&limit=200');
         console.log(green(`Successfully fetched list of Blog Posts`));
@@ -346,6 +355,7 @@ class HubSpotClient {
             const parentBlog = await this.getParentBlog(blogPost.parent_blog.name);
             if (!parentBlog) continue;
             blogPost.content_group_id = parentBlog.id;
+            blogPost.blog_author_id = sungardAsAuthorId;
             if (blogPost?.translated_from_id) continue;
             console.log(blue(`Syncing Blog post: ${blogPost.name}`));
             const res = await this.request(path, KeyType.DESTINATION, {

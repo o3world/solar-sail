@@ -14,7 +14,19 @@ export class HubSpotClient {
   private keySource:string = HAPI_KEY_SOURCE;
   private keyDest:string = HAPI_KEY_DESTINATION;
 
+  /**
+   * Use this function to abide by Hubspot API's rate limits
+   * @param ms Time in milliseconds to wait
+   */
+  async sleep(ms:number) {
+    await new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+  }   
+
   async request(path:string, key:KeyType, options?:RequestInit, queryStr?:string) {
+
+    await this.sleep(105);
 
     let keyParam = `?hapikey=${this.keySource}`;
 
@@ -80,7 +92,7 @@ export class HubSpotClient {
 
     for(const page of pages?.objects) {
       delete page.id;
-      this.request(path, KeyType.DESTINATION, {
+      await this.request(path, KeyType.DESTINATION, {
         method: 'POST',
         body: JSON.stringify(page),
         headers: {
@@ -249,6 +261,11 @@ export class HubSpotClient {
   async syncBlogPosts(path:string) {
     await this.syncBlogAuthors();
     await this.syncBlogs();
+
+    // Get blog author ID for `Sungard AS` user since ID's aren't the same between environments
+    const destinationAuthors = await this.request('blogs/v3/blog-authors', KeyType.DESTINATION);
+    const sungardAsAuthorId = destinationAuthors.objects.find((author: any) => author.displayName == 'Sungard AS').id;
+
     console.log(Colors.blue('Getting List of Blog Posts'))
     const blogPosts = await this.request(path, KeyType.SOURCE, undefined, '&limit=200');
     console.log(Colors.green(`Successfully fetched list of Blog Posts`));
@@ -257,6 +274,9 @@ export class HubSpotClient {
       const parentBlog = await this.getParentBlog(blogPost.parent_blog.name);
       if (!parentBlog) continue;
       blogPost.content_group_id = parentBlog.id;
+
+      // Set blog author ID to `Sungard AS` user since ID's aren't the same between environments
+      blogPost.blog_author_id = sungardAsAuthorId;
 
       // Skipping translated content for now.
       if (blogPost?.translated_from_id) continue;
