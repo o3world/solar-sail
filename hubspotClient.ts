@@ -14,11 +14,15 @@ export class HubSpotClient {
   private keySource:string = HAPI_KEY_SOURCE;
   private keyDest:string = HAPI_KEY_DESTINATION;
 
+  private getPageByIdPath(id:number):string {
+    return `content/api/v2/pages/${id}`;
+  }
+
   /**
    * Use this function to abide by Hubspot API's rate limits
    * @param ms Time in milliseconds to wait
    */
-  async sleep(ms:number) {
+  async sleep(ms:number): Promise<void> {
     await new Promise((resolve) => {
       setTimeout(resolve, ms);
     });
@@ -87,10 +91,44 @@ export class HubSpotClient {
     }
   }
 
+  private async getDestParent(translatedFromId:number, pageId:number, listPagesPath:string) {
+    // Get parent from SOURCE
+    const sourceParent = await this.request(this.getPageByIdPath(translatedFromId), KeyType.SOURCE, undefined, '&limit=1');
+    if (!sourceParent.name) {
+      console.error(Colors.red(`Error finding parent content on source environment with ID ${pageId}.`));
+      return null;
+    }
+
+    const sourceParentLang = sourceParent.language ?? 'en-us';
+
+    // Find parent on DESTINATION (by name and lang from SOURCE page)
+    const destParents = await this.request(listPagesPath, KeyType.DESTINATION, undefined, `&limit=1&name__icontains=${encodeURIComponent(sourceParent.name)}&language__in=${sourceParentLang}`);
+
+    // Check for matches
+    if (typeof destParents.objects !== 'undefined' && destParents.objects.length) {
+      return destParents.objects[0];
+    }
+    return null;
+  }
+
   async syncPages(path:string) {
-    const pages = await this.request(path, KeyType.SOURCE, undefined, '&limit=200');
+    const pages = await this.request(path, KeyType.SOURCE, undefined, '&limit=100');
+    const orphanedTranslations = [];
 
     for(const page of pages?.objects) {
+      // Check if this is a translation of another page or a parent page
+      if (page.translated_from_id) {
+        const destParent = await this.getDestParent(page.translated_from_id, page.id, path);
+
+        // Assign parent to translation if match is found, otherwise, defer for later (parent may not have been created on DESTINATION yet)
+        if (destParent) {
+          page.translated_from_id = destParent.id;
+        } else {
+          orphanedTranslations.push(page);
+          continue;
+        }
+      }
+
       delete page.id;
       await this.request(path, KeyType.DESTINATION, {
         method: 'POST',
@@ -99,6 +137,27 @@ export class HubSpotClient {
           'content-type': 'application/json'
         }
       });
+    }
+
+    // Process orphaned translations queue
+    for (const page of orphanedTranslations) {
+      // Attempt to get parent from dev (by name and lang)
+      const destParent = await this.getDestParent(page.translated_from_id, page.id, path);
+
+      // Assign parent to translation if match is found, otherwise, log
+      if (destParent) {
+        page.translated_from_id = destParent.id;
+        delete page.id;
+        await this.request(path, KeyType.DESTINATION, {
+          method: 'POST',
+          body: JSON.stringify(page),
+          headers: {
+            'content-type': 'application/json'
+          }
+        });
+      } else {
+        console.error(Colors.red(`Unable to create page with live ID: ${page.id}`));
+      }
     }
   }
 
