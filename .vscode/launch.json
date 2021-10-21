@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        // Run this in your terminal at the same time:
+        // deno run --allow-net --allow-env --allow-read --allow-write --inspect-brk ./main.ts
+        {
+            "name": "Deno (Attach)",
+            "type": "node",
+            "request": "attach",
+            "port": 9229
+        }
+    ]
+}
