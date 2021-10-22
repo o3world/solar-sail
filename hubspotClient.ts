@@ -112,7 +112,7 @@ export class HubSpotClient {
   }
 
   async syncPages(path:string) {
-    const pages = await this.request(path, KeyType.SOURCE, undefined, '&limit=100');
+    const pages = await this.request(path, KeyType.SOURCE, undefined, '&limit=20000');
     const orphanedTranslations = [];
 
     for(const page of pages?.objects) {
