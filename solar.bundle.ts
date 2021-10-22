@@ -110,8 +110,8 @@ function code(open, close) {
         regexp: new RegExp(`\\x1b\\[${close}m`, "g")
     };
 }
-function run(str, code1) {
-    return enabled ? `${code1.open}${str.replace(code1.regexp, code1.open)}${code1.close}` : str;
+function run(str, code) {
+    return enabled ? `${code.open}${str.replace(code.regexp, code.open)}${code.close}` : str;
 }
 function red(str) {
     return run(str, code([
@@ -133,14 +133,14 @@ function blue(str) {
         34
     ], 39));
 }
-const ANSI_PATTERN = new RegExp([
+new RegExp([
     "[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)",
     "(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))", 
 ].join("|"), "g");
 var KeyType;
-(function(KeyType1) {
-    KeyType1["SOURCE"] = "SOURCE";
-    KeyType1["DESTINATION"] = "DESTINATION";
+(function(KeyType) {
+    KeyType["SOURCE"] = "SOURCE";
+    KeyType["DESTINATION"] = "DESTINATION";
 })(KeyType || (KeyType = {
 }));
 const { HAPI_KEY_SOURCE , HAPI_KEY_DESTINATION  } = config({
@@ -150,6 +150,9 @@ class HubSpotClient {
     url = 'https://api.hubapi.com/';
     keySource = HAPI_KEY_SOURCE;
     keyDest = HAPI_KEY_DESTINATION;
+    getPageByIdPath(id) {
+        return `content/api/v2/pages/${id}`;
+    }
     async sleep(ms) {
         await new Promise((resolve)=>{
             setTimeout(resolve, ms);
@@ -199,9 +202,32 @@ class HubSpotClient {
             return true;
         }
     }
+    async getDestParent(translatedFromId, pageId, listPagesPath) {
+        const sourceParent = await this.request(this.getPageByIdPath(translatedFromId), KeyType.SOURCE, undefined, '&limit=1');
+        if (!sourceParent.name) {
+            console.error(red(`Error finding parent content on source environment with ID ${pageId}.`));
+            return null;
+        }
+        const sourceParentLang = sourceParent.language ?? 'en-us';
+        const destParents = await this.request(listPagesPath, KeyType.DESTINATION, undefined, `&limit=1&name__icontains=${encodeURIComponent(sourceParent.name)}&language__in=${sourceParentLang}`);
+        if (typeof destParents.objects !== 'undefined' && destParents.objects.length) {
+            return destParents.objects[0];
+        }
+        return null;
+    }
     async syncPages(path) {
-        const pages = await this.request(path, KeyType.SOURCE, undefined, '&limit=200');
+        const pages = await this.request(path, KeyType.SOURCE, undefined, '&limit=20000');
+        const orphanedTranslations = [];
         for (const page of pages?.objects){
+            if (page.translated_from_id) {
+                const destParent = await this.getDestParent(page.translated_from_id, page.id, path);
+                if (destParent) {
+                    page.translated_from_id = destParent.id;
+                } else {
+                    orphanedTranslations.push(page);
+                    continue;
+                }
+            }
             delete page.id;
             await this.request(path, KeyType.DESTINATION, {
                 method: 'POST',
@@ -210,6 +236,22 @@ class HubSpotClient {
                     'content-type': 'application/json'
                 }
             });
+        }
+        for (const page1 of orphanedTranslations){
+            const destParent = await this.getDestParent(page1.translated_from_id, page1.id, path);
+            if (destParent) {
+                page1.translated_from_id = destParent.id;
+                delete page1.id;
+                await this.request(path, KeyType.DESTINATION, {
+                    method: 'POST',
+                    body: JSON.stringify(page1),
+                    headers: {
+                        'content-type': 'application/json'
+                    }
+                });
+            } else {
+                console.error(red(`Unable to create page with live ID: ${page1.id}`));
+            }
         }
     }
     async syncHubDb(path) {
@@ -374,8 +416,8 @@ class HubSpotClient {
     }
 }
 class DenoStdInternalError extends Error {
-    constructor(message1){
-        super(message1);
+    constructor(message){
+        super(message);
         this.name = "DenoStdInternalError";
     }
 }
@@ -384,8 +426,9 @@ function assert(expr, msg = "") {
         throw new DenoStdInternalError(msg);
     }
 }
+const { hasOwn  } = Object;
 function get(obj, key) {
-    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+    if (hasOwn(obj, key)) {
         return obj[key];
     }
 }
@@ -459,9 +502,9 @@ function parse1(args, { "--": doubleDash = false , alias ={
         ] : string;
         for (const key of stringArgs.filter(Boolean)){
             flags.strings[key] = true;
-            const alias1 = get(aliases, key);
-            if (alias1) {
-                for (const al of alias1){
+            const alias = get(aliases, key);
+            if (alias) {
+                for (const al of alias){
                     flags.strings[al] = true;
                 }
             }
@@ -500,9 +543,9 @@ function parse1(args, { "--": doubleDash = false , alias ={
         }
         const value = !get(flags.strings, key) && isNumber(val) ? Number(val) : val;
         setKey(argv, key.split("."), value);
-        const alias1 = get(aliases, key);
-        if (alias1) {
-            for (const x of alias1){
+        const alias = get(aliases, key);
+        if (alias) {
+            for (const x of alias){
                 setKey(argv, x.split("."), value);
             }
         }
@@ -524,12 +567,12 @@ function parse1(args, { "--": doubleDash = false , alias ={
         if (/^--.+=/.test(arg)) {
             const m = arg.match(/^--([^=]+)=(.*)$/s);
             assert(m != null);
-            const [, key1, value] = m;
-            if (flags.bools[key1]) {
+            const [, key, value] = m;
+            if (flags.bools[key]) {
                 const booleanValue = value !== "false";
-                setArg(key1, booleanValue, arg);
+                setArg(key, booleanValue, arg);
             } else {
-                setArg(key1, value, arg);
+                setArg(key, value, arg);
             }
         } else if (/^--no-.+/.test(arg)) {
             const m = arg.match(/^--no-(.+)/);
@@ -538,16 +581,16 @@ function parse1(args, { "--": doubleDash = false , alias ={
         } else if (/^--.+/.test(arg)) {
             const m = arg.match(/^--(.+)/);
             assert(m != null);
-            const [, key1] = m;
+            const [, key] = m;
             const next = args[i + 1];
-            if (next !== undefined && !/^-/.test(next) && !get(flags.bools, key1) && !flags.allBools && (get(aliases, key1) ? !aliasIsBoolean(key1) : true)) {
-                setArg(key1, next, arg);
+            if (next !== undefined && !/^-/.test(next) && !get(flags.bools, key) && !flags.allBools && (get(aliases, key) ? !aliasIsBoolean(key) : true)) {
+                setArg(key, next, arg);
                 i++;
             } else if (/^(true|false)$/.test(next)) {
-                setArg(key1, next === "true", arg);
+                setArg(key, next === "true", arg);
                 i++;
             } else {
-                setArg(key1, get(flags.strings, key1) ? "" : true, arg);
+                setArg(key, get(flags.strings, key) ? "" : true, arg);
             }
         } else if (/^-[^-]+/.test(arg)) {
             const letters = arg.slice(1, -1).split("");
@@ -576,16 +619,16 @@ function parse1(args, { "--": doubleDash = false , alias ={
                     setArg(letters[j], get(flags.strings, letters[j]) ? "" : true, arg);
                 }
             }
-            const [key1] = arg.slice(-1);
-            if (!broken && key1 !== "-") {
-                if (args[i + 1] && !/^(-|--)[^-]/.test(args[i + 1]) && !get(flags.bools, key1) && (get(aliases, key1) ? !aliasIsBoolean(key1) : true)) {
-                    setArg(key1, args[i + 1], arg);
+            const [key] = arg.slice(-1);
+            if (!broken && key !== "-") {
+                if (args[i + 1] && !/^(-|--)[^-]/.test(args[i + 1]) && !get(flags.bools, key) && (get(aliases, key) ? !aliasIsBoolean(key) : true)) {
+                    setArg(key, args[i + 1], arg);
                     i++;
                 } else if (args[i + 1] && /^(true|false)$/.test(args[i + 1])) {
-                    setArg(key1, args[i + 1] === "true", arg);
+                    setArg(key, args[i + 1] === "true", arg);
                     i++;
                 } else {
-                    setArg(key1, get(flags.strings, key1) ? "" : true, arg);
+                    setArg(key, get(flags.strings, key) ? "" : true, arg);
                 }
             }
         } else {
@@ -610,12 +653,12 @@ function parse1(args, { "--": doubleDash = false , alias ={
     }
     if (doubleDash) {
         argv["--"] = [];
-        for (const key2 of notFlags){
-            argv["--"].push(key2);
+        for (const key of notFlags){
+            argv["--"].push(key);
         }
     } else {
-        for (const key2 of notFlags){
-            argv._.push(key2);
+        for (const key of notFlags){
+            argv._.push(key);
         }
     }
     return argv;
